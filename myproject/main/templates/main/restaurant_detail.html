@@ -12,35 +12,30 @@
          alt="{{ restaurant.name }} логотип">
   {% endif %}
 
-  <div id="map-detail" style="height:300px; margin-bottom:1.5rem;"></div>
+  <p><small class="text-muted">
+  </small></p>
+
+  <div id="map" style="width: 100%; height: 300px; margin-bottom:1.5rem;"></div>
 
   <div class="row mb-4">
     <div class="col-md-6">
-      <!-- Адрес -->
-      <p><strong>Адрес:</strong> {{restaurant.address }}</p>
+      <p><strong>Адрес:</strong> {{ restaurant.address }}</p>
 
-      <!-- Телефон -->
       {% if restaurant.phone %}
         <p><strong>Телефон:</strong>
-          <a href="tel:{{ restaurant.phone }}">{{restaurant.phone }}</a>
+          <a href="tel:{{ restaurant.phone }}">{{ restaurant.phone }}</a>
         </p>
       {% endif %}
 
-      <!-- Часы работы -->
       {% if restaurant.hours %}
         <p><strong>Часы работы:</strong> {{ restaurant.hours }}</p>
       {% endif %}
 
-      <!-- Рейтинг -->
       {% if restaurant.rating %}
         <p><strong>Рейтинг:</strong> {{ restaurant.rating }} ★</p>
+      {% else %}
+        <p><strong>Рейтинг:</strong> Пока нет</p>
       {% endif %}
-
-      <!-- Число столов и мест -->
-      <p>
-        <strong>Столов всего:</strong> {{ restaurant.table_count }}<br>
-        <strong>Мест всего:</strong> {{ restaurant.total_seats }}
-      </p>
     </div>
     <div class="col-md-6 text-end">
       <a href="{% url 'reserve' %}?restaurant={{ restaurant.id }}"
@@ -50,22 +45,7 @@
     </div>
   </div>
 
-  <!-- Свободные столы -->
-  <h4>Свободные столы на {{ today|date:"d.m.Y" }}:</h4>
-  {% if available_tables %}
-    <ul class="list-group mb-4">
-      {% for table in available_tables %}
-        <li class="list-group-item">
-          Стол №{{ table.number }} — {{ table.seats }} мест
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>Все столы на сегодня заняты.</p>
-  {% endif %}
-
   <hr>
-  <!-- Отзывы -->
   <h4>Отзывы ({{ restaurant.reviews.count }}):</h4>
   {% if reviews %}
     <ul class="list-group mb-4">
@@ -84,7 +64,6 @@
     <p>Пока нет отзывов. Станьте первым!</p>
   {% endif %}
 
-  <!-- Форма оставления отзыва -->
   {% if user.is_authenticated %}
     <div class="card card-body mb-4">
       <h5>Оставить отзыв</h5>
@@ -113,16 +92,42 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://maps.api.2gis.ru/2.0/loader.js?pkg=full"></script>
+<script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU&apikey={{ yandex_maps_key }}"></script>
 <script>
-  DG.then(function(){
-    var map = DG.map('map-detail', {
-      center: [{{ restaurant.lat }}, {{ restaurant.lon }}],
-      zoom: 15
-    });
-    DG.marker([{{ restaurant.lat }}, {{ restaurant.lon }}])
-      .addTo(map)
-      .bindPopup('<b>{{ restaurant.name }}</b><br>{{ restaurant.address }}');
+  ymaps.ready(function () {
+    const lat = parseFloat("{{ restaurant.lat|floatformat:"6" }}".replace(',', '.'));
+    const lon = parseFloat("{{ restaurant.lon|floatformat:"6" }}".replace(',', '.'));
+
+    console.log("JS координаты:", lat, typeof lat, "|", lon, typeof lon);
+
+    if (!isNaN(lat) && !isNaN(lon)) {
+      const myMap = new ymaps.Map("map", {
+        center: [lat, lon],
+        zoom: 16,
+        type: 'yandex#map'
+      });
+
+      const content = `
+        <div style="font-size: 14px; max-width: 200px;">
+          <strong>{{ restaurant.name }}</strong><br>
+          {{ restaurant.address }}<br>
+          {% if restaurant.hours %}<em>{{ restaurant.hours }}</em><br>{% endif %}
+          {% if restaurant.rating %}⭐ {{ restaurant.rating }}<br>{% endif %}
+          {% if restaurant.avatar_url %}<img src="{{ restaurant.avatar_url }}" style="width:100%; margin-top:5px; border-radius:6px;">{% endif %}
+        </div>
+      `;
+
+      const myPlacemark = new ymaps.Placemark([lat, lon], {
+        hintContent: '{{ restaurant.name }}',
+        balloonContent: content
+      }, {
+        balloonMaxWidth: 220
+      });
+
+      myMap.geoObjects.add(myPlacemark);
+    } else {
+      console.error("Некорректные координаты:", lat, lon);
+    }
   });
 </script>
 {% endblock %}

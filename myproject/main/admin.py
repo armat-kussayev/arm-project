@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import Restaurant, Table, Reservation, Review
 
-# Сначала снимаем регистрацию, если она была
+
 try:
     admin.site.unregister(Restaurant)
 except admin.sites.NotRegistered:

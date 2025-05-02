@@ -1,22 +1,22 @@
 from django.conf import settings
-from django.contrib import messages
+
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import render, redirect, get_object_or_404
+
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.utils import timezone
+
 from rest_framework import generics
-from datetime import date
+from .models import Review
 
 from .models import Restaurant, Table, Reservation, Review
 from .forms import ReservationForm, CustomUserCreationForm, ReviewForm
 from .serializers import RestaurantSerializer, ReservationSerializer
-from .views_external import external_restaurants
+
 from .permissions import IsAuthenticated401
-from datetime import date
+
 import re
-from datetime import date, timedelta
+
 
 
 
@@ -128,13 +128,12 @@ def make_reservation(request):
 
     restaurant = get_object_or_404(Restaurant, pk=rest_id)
 
-    # Распарсим часы работы
     hours_text = restaurant.hours or ""
     m = re.search(r'(\d{1,2}:\d{2})[–-](\d{1,2}:\d{2})', hours_text)
     if m:
         start_str, end_str = m.group(1), m.group(2)
         if end_str == '24:00':
-            end_str = '23:59'  # безопасная замена
+            end_str = '23:59'
         work_start = datetime.strptime(start_str, '%H:%M').time()
         work_end = datetime.strptime(end_str, '%H:%M').time()
     else:
@@ -143,22 +142,32 @@ def make_reservation(request):
     today = date.today()
     max_date = today + timedelta(days=30)
     date_options = [today + timedelta(days=i) for i in range(7)]
-    selected_date = request.POST.get('date') or request.GET.get('date')
-    if selected_date == today.isoformat():
+    selected_date_str = request.POST.get('date') or request.GET.get('date')
+    selected_date = None
+
+    if selected_date_str:
+        try:
+            selected_date = datetime.strptime(selected_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            selected_date = today
+    else:
+        selected_date = today
+
+    if selected_date == today:
         now = datetime.now()
         mins = ((now.minute + 14) // 15) * 15
         h, m = now.hour + mins // 60, mins % 60
-        rounded = time(h, m)
+        rounded = time(h % 24, m)
         min_time = max(rounded, work_start)
     else:
         min_time = work_start
-
-    end_limit = (datetime.combine(today, work_end) - timedelta(hours=2)).time()
+    force_update = True
+    end_limit = (datetime.combine(selected_date, work_end) - timedelta(hours=2)).time()
     max_time = end_limit
 
     slots = []
-    dt_cursor = datetime.combine(today, min_time)
-    dt_end    = datetime.combine(today, max_time)
+    dt_cursor = datetime.combine(selected_date, min_time)
+    dt_end    = datetime.combine(selected_date, max_time)
     while dt_cursor <= dt_end:
         slots.append(dt_cursor.time().strftime('%H:%M'))
         dt_cursor += timedelta(minutes=15)
@@ -199,8 +208,6 @@ def make_reservation(request):
         'today_iso': today.isoformat(),
         'max_date_iso': max_date.isoformat(),
     })
-
-
 
 
 
@@ -267,9 +274,12 @@ def profile(request):
     user = request.user
     upcoming = user.reservations.filter(date__gte=date.today()).order_by('date','time')
     past     = user.reservations.filter(date__lt =date.today()).order_by('-date','-time')
+    my_reviews = Review.objects.filter(user=user).order_by('-created_at')
     return render(request, 'main/profile.html', {
         'upcoming': upcoming,
         'past':     past,
+        'my_reviews': my_reviews,
+
     })
 
 from django.shortcuts import redirect
@@ -302,8 +312,20 @@ def cancel_reservation(request, pk):
 # ——— API ——————————————————————————————
 
 class RestaurantListAPI(generics.ListAPIView):
-    queryset = Restaurant.objects.all()
     serializer_class = RestaurantSerializer
+
+    def get_queryset(self):
+        q = self.request.GET.get('q', '')
+        qs = Restaurant.objects.all()
+        if q:
+            qs = qs.filter(Q(name__icontains=q) | Q(address__icontains=q))
+        return qs
+class ReservationDetailAPI(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ReservationSerializer
+    permission_classes = [IsAuthenticated401]
+
+    def get_queryset(self):
+        return Reservation.objects.filter(user=self.request.user)
 
 
 class ReservationListCreateAPI(generics.ListCreateAPIView):
@@ -408,3 +430,21 @@ def update_restaurants(request):
         count += 1
 
     return JsonResponse({'message': f'Обновлено ресторанов: {count}'})
+
+
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+
+def search_suggestions(request):
+    q = request.GET.get('q', '').strip()
+    results = []
+    if q:
+        results = Restaurant.objects.filter(
+            Q(name__icontains=q) |
+            Q(address__icontains=q) |
+            Q(phone__icontains=q)
+        )[:5]
+
+    html = render_to_string('main/_search_suggestions.html', {'results': results})
+    return HttpResponse(html)
+

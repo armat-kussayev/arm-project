@@ -5,19 +5,33 @@
 {% block content %}
 <div class="container py-4">
   <h1 class="mb-4">Рестораны</h1>
-
-  <form method="get" class="mb-4">
-    <div class="input-group">
-      <input
-        type="text"
-        name="q"
-        value="{{ search_query }}"
-        class="form-control"
-        placeholder="Поиск по названию или адресу…"
-      >
-      <button class="btn btn-outline-secondary" type="submit">🔍</button>
+  <script src="https://unpkg.com/htmx.org@1.9.5"></script>
+ <form method="get" class="mb-4" autocomplete="off">
+  <div class="row">
+    <div class="col-12 col-md-8 offset-md-2">
+      <div class="input-group shadow-sm">
+        <input
+          type="text"
+          name="q"
+          id="search-input"
+          class="form-control rounded-start"
+          placeholder="🔍 Поиск по ресторанам…"
+          hx-get="{% url 'search_suggestions' %}"
+          hx-target="#suggestions"
+          hx-trigger="keyup changed delay:300ms"
+        >
+        <button class="btn btn-primary rounded-end" type="submit">Найти</button>
+      </div>
+      <div class="position-relative">
+        <div id="suggestions"
+          class="list-group shadow-sm position-absolute w-100 rounded mt-1"
+          style="max-height: 300px; overflow-y: auto; z-index: 1000;">
+        </div>
+      </div>
     </div>
-  </form>
+  </div>
+</form>
+
 
   <div class="row g-4">
     {% for r in restaurants %}
@@ -95,4 +109,5 @@
     </nav>
   {% endif %}
 </div>
+
 {% endblock %}

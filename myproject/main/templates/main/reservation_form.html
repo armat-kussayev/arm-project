@@ -1,69 +1,66 @@
 {% extends 'main/base.html' %}
 {% block content %}
-  <h2>Бронирование в {{ restaurant.name }}</h2>
-  <form method="post" id="res-form">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
+  <div class="container py-4">
+    <h2 class="mb-4">Бронирование в {{ restaurant.name }}</h2>
 
-    {# Шаг 1: Гости #}
-    <div id="step-guests">
-      <p><strong>1. Сколько гостей?</strong></p>
-      <div class="btn-group mb-3" role="group">
-        {% for n in guests_options %}
-          <button type="button"
-                  class="btn btn-outline-primary guest-btn"
-                  data-guests="{{ n }}">
-            {{ n }} {% if n == 1 %}гость{% else %}гостей{% endif %}
-          </button>
-        {% endfor %}
-        <button type="button" class="btn btn-outline-primary guest-btn" data-guests="7+">7+</button>
-      </div>
-      <input type="hidden" name="guests" id="id_guests">
+    <div class="progress mb-4" style="height: 6px">
+      <div id="step-progress" class="progress-bar bg-success" style="width: 25%"></div>
     </div>
 
-    {# Шаг 2: Дата #}
-    <div id="step-date" style="display:none">
-      <p><strong>2. Выберите дату</strong></p>
-      <div class="btn-group mb-3" role="group">
-        {% for d in date_options %}
-          <button type="button"
-                  class="btn btn-outline-primary date-btn"
-                  data-date="{{ d|date:'Y-m-d' }}">
-            {{ d|date:"d.m.Y" }}
-            {% if forloop.first %}(Сегодня){% elif forloop.counter == 2 %}(Завтра){% endif %}
-          </button>
-        {% endfor %}
-      </div>
-      <input type="hidden" name="date" id="id_date">
-    </div>
+    <form method="post" id="res-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
 
-    {# Шаг 3: Время #}
-    <div id="step-time" style="display:none">
-      <p><strong>3. Время начала (длительность 2 ч)</strong></p>
-      <div class="btn-group flex-wrap mb-3" role="group">
-        {% for t in time_slots %}
-          <button type="button"
-                  class="btn btn-outline-primary time-btn m-1"
-                  data-time="{{ t }}">
-            {{ t }}
-          </button>
-        {% endfor %}
+      {# Шаг 1: Гости #}
+      <div id="step-guests">
+        <p><strong>1. Сколько гостей?</strong></p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for n in guests_options %}
+            <button type="button" class="btn btn-outline-primary guest-btn" data-guests="{{ n }}">
+              {{ n }} {% if n == 1 %}гость{% else %}гостей{% endif %}
+            </button>
+          {% endfor %}
+          <button type="button" class="btn btn-outline-primary guest-btn" data-guests="7+">7+</button>
+        </div>
+        <input type="hidden" name="guests" id="id_guests">
       </div>
-      <input type="hidden" name="time" id="id_time">
-      <div class="form-text text-muted">
-        Ресторан открыт с {{ work_start }} до {{ work_end }}.
-      </div>
-    </div>
 
-    {# Шаг 4: Подтвердить #}
-    <div id="step-submit" style="display:none">
-      <p>
-        Вы выбрали:
-        <strong id="summary"></strong>
-      </p>
-      <button class="btn btn-success">Подтвердить бронь</button>
-    </div>
-  </form>
+      {# Шаг 2: Дата #}
+      <div id="step-date" style="display:none">
+        <p><strong>2. Выберите дату</strong></p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for d in date_options %}
+            <button type="button" class="btn btn-outline-primary date-btn" data-date="{{ d|date:'Y-m-d' }}">
+              {{ d|date:"d.m.Y" }} {% if forloop.first %}(Сегодня){% elif forloop.counter == 2 %}(Завтра){% endif %}
+            </button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="date" id="id_date">
+      </div>
+
+      {# Шаг 3: Время #}
+      <div id="step-time" style="display:none">
+        <p><strong>3. Время начала (длительность 2 ч)</strong></p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          {% for t in time_slots %}
+            <button type="button" class="btn btn-outline-primary time-btn" data-time="{{ t }}">{{ t }}</button>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="time" id="id_time">
+        <div class="form-text text-muted">
+          Ресторан открыт с {{ work_start }} до {{ work_end }}.
+        </div>
+      </div>
+
+      {# Шаг 4: Подтвердить #}
+      <div id="step-submit" style="display:none">
+        <p class="mb-3">
+          Вы выбрали: <strong id="summary"></strong>
+        </p>
+        <button class="btn btn-success px-4">Подтвердить бронь</button>
+      </div>
+    </form>
+  </div>
 {% endblock %}
 
 {% block extra_js %}
@@ -72,31 +69,45 @@ document.addEventListener('DOMContentLoaded', function(){
   const guestsF = document.getElementById('id_guests'),
         dateF   = document.getElementById('id_date'),
         timeF   = document.getElementById('id_time'),
-        summary = document.getElementById('summary');
+        summary = document.getElementById('summary'),
+        progress = document.getElementById('step-progress');
 
-  function showStep(id){
+  function showStep(id, step) {
     ['step-guests','step-date','step-time','step-submit']
       .forEach(s=> document.getElementById(s).style.display = s===id?'block':'none');
+    progress.style.width = step + '%';
   }
 
   document.querySelectorAll('.guest-btn').forEach(b=>{
-    b.onclick = ()=> { guestsF.value=b.dataset.guests; showStep('step-date'); };
+    b.onclick = ()=> {
+      guestsF.value = b.dataset.guests;
+      document.querySelectorAll('.guest-btn').forEach(btn => btn.classList.remove('active'));
+      b.classList.add('active');
+      showStep('step-date', 50);
+    };
   });
   document.querySelectorAll('.date-btn').forEach(b=>{
-    b.onclick = ()=> { dateF.value=b.dataset.date; showStep('step-time'); };
+    b.onclick = ()=> {
+      dateF.value = b.dataset.date;
+      document.querySelectorAll('.date-btn').forEach(btn => btn.classList.remove('active'));
+      b.classList.add('active');
+      showStep('step-time', 75);
+    };
   });
   document.querySelectorAll('.time-btn').forEach(b=>{
     b.onclick = ()=>{
-      timeF.value=b.dataset.time;
+      timeF.value = b.dataset.time;
+      document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+      b.classList.add('active');
       const g=guestsF.value,
             d=new Date(dateF.value).toLocaleDateString('ru-RU',{day:'2-digit',month:'long'}),
             t=timeF.value;
       summary.textContent = `${g} гостей › ${d} › ${t}`;
-      showStep('step-submit');
+      showStep('step-submit', 100);
     };
   });
 
-  showStep('step-guests');
+  showStep('step-guests', 25);
 });
 </script>
 {% endblock %}

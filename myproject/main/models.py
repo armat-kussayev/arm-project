@@ -78,7 +78,7 @@ class Reservation(models.Model):
         ordering = ['-date', '-time']
 
     def __str__(self):
-        return f"{self.user} → {self.table} @ {self.date} {self.time}–{self.end_time} ({self.guests} guests)"
+        return f"{self.user} → {self.table} @ {self.date} {self.time} ({self.guests} guests)"
 
 class Review(models.Model):
     restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='reviews')

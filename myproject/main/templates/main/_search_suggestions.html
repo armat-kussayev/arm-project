@@ -1,0 +1,10 @@
+{% if results %}
+  {% for r in results %}
+    <a href="{% url 'restaurant_detail' r.id %}" class="list-group-item list-group-item-action">
+      <strong>{{ r.name }}</strong><br>
+      <small class="text-muted">{{ r.address }}</small>
+    </a>
+  {% endfor %}
+{% else %}
+  <div class="list-group-item text-muted">Ничего не найдено…</div>
+{% endif %}
